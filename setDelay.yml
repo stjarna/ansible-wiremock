@@ -1,0 +1,51 @@
+-   name: "Change fixedDelay" 
+    hosts: "all"
+    gather_facts: False
+    vars:    
+      fileList: "{{ lookup('file','delays.yml') | from_yaml }}"
+    pre_tasks:
+      - assert:  
+          that: "{{ item }} is defined" 
+          msg: "Variable {{ item }} must be provided"
+        with_items: 
+          - mocks
+          - fileList
+    tasks:
+        - name: "Remove lines with occurrences of fixed delay"
+          lineinfile:               
+              path: "{{ item.fileName }}"
+              regexp: '^.*"fixedDelayMilliseconds.*'
+              state: absent
+          with_items: "{{ fileList }}"
+    
+        - name: "Add fixed delay"
+          lineinfile:
+            path: "{{ item.fileName }}"
+            insertafter: '^.*"status"'
+            line: ',"fixedDelayMilliseconds": {{item.delay}}'
+            state: present
+          with_items: "{{ fileList }}"  
+
+        - name: "Check Wiremock java process"
+          shell: "ps axf | grep 'java -jar wiremock' | grep -v grep | awk '{print $1}'"
+          register: wiremock_pid
+          ignore_errors: false
+
+        - name: "Debug step"
+          debug: 
+            msg="Wiremock Process is running on {{ inventory_hostname }} ... {{wiremock_pid.stdout}} "
+          when: wiremock_pid.stdout_lines|length > 0
+
+        - name: "Kill Wiremock java process"
+          shell: "kill -9 {{ wiremock_pid.stdout }}"
+          ignore_errors: false
+          when: wiremock_pid.stdout_lines|length > 0
+
+        #- name: "Start Wiremock java process"
+        #  shell: "java -jar wiremock...{{ mocks }}"
+        #  ignore_errors: false
+        #  when: wiremock_pid.stdout_lines|length > 0
+  
+#ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "mocks='fd/semi'"
+
+

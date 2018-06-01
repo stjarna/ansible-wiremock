@@ -1,0 +1,4 @@
+- fileName: "~/test.json"
+  delay: 4000
+#- fileName: "~/test2.json"
+#  delay: 6000  
