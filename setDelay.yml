@@ -2,7 +2,7 @@
     hosts: "all"
     gather_facts: False
     vars:    
-      fileList: "{{ lookup('file','delays.yml') | from_yaml }}"
+      fileList: "{{ lookup('file','files/delays.yml') | from_yaml }}"
     pre_tasks:
       - assert:  
           that: "{{ item }} is defined" 
@@ -44,7 +44,6 @@
         #- name: "Start Wiremock java process"
         #  shell: "java -jar wiremock...{{ mocks }}"
         #  ignore_errors: false
-        #  when: wiremock_pid.stdout_lines|length > 0
   
 #ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "mocks='fd/semi'"
 
