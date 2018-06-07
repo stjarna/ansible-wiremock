@@ -1,0 +1,6 @@
+- mockName: "fd/semi"
+  fileMask: ""
+  delay: 7000
+- mockName: "ln/full"
+  fileMask: "iidqa"
+  delay: 5000

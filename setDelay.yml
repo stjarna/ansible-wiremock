@@ -1,22 +1,64 @@
 -   name: "Change fixedDelay" 
-    hosts: "all"
+    hosts: "vagrant1"
     gather_facts: False
     vars:    
-      fileList: "{{ lookup('file','files/delays.yml') | from_yaml }}"
+      mockList: "{{ lookup('file','files/mockDelays.yml') | from_yaml }}"
     pre_tasks:
       - assert:  
           that: "{{ item }} is defined" 
           msg: "Variable {{ item }} must be provided"
         with_items: 
-          - mocks
-          - fileList
+          - baseDir
+          - mockList
     tasks:
+        - name: "Prepend to mocks a basedir path"
+          set_fact:
+            folderList: "{{ folderList|default([]) + [ {'folderName': baseDir + '/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
+          with_items: "{{ mockList}}"  
+
+        - name: "Debug step - folderList"
+          debug: 
+            msg="folderList {{ folderList}}"
+
+        - name: "Find affected mock files"
+          find:
+            paths: "{{ item.folderName }}"
+            patterns: "{{ item.fileMask }}*.json"
+          with_items: "{{ folderList }}"
+          register: fileList
+
+
+        #- name: "Debug step - fileList"
+        #  debug: 
+        #    msg: "{{ fileList }}"
+
+        - name: "Debug step - fileList"
+          debug: 
+            msg: "file: {{ item.1.path }}, delay: {{ folderList | selectattr('folderName', 'equalto', item.0.item.folderName) | map(attribute='delay') | join(',') }}"
+          # nested lists require the following loop  
+          with_subelements:
+            - "{{ fileList.results }}"
+            - files  
+
+
+        - name: "Prepare file list with delays"
+          set_fact: 
+            delayList: "{{ delayList|default([]) + [ {'fileName':  item.1.path, 'delay': folderList | selectattr('folderName', 'equalto', item.0.item.folderName) | map(attribute='delay') | join(',') } ] }}"                    
+          with_subelements:
+            - "{{ fileList.results }}"
+            - files  
+
+
+        - name: "Debug step - delayList"
+          debug: 
+            msg: "{{ delayList }}"
+
         - name: "Remove lines with occurrences of fixed delay"
           lineinfile:               
               path: "{{ item.fileName }}"
               regexp: '^.*"fixedDelayMilliseconds.*'
               state: absent
-          with_items: "{{ fileList }}"
+          with_items: "{{ delayList }}"
     
         - name: "Add fixed delay"
           lineinfile:
@@ -24,7 +66,7 @@
             insertafter: '^.*"status"'
             line: ',"fixedDelayMilliseconds": {{item.delay}}'
             state: present
-          with_items: "{{ fileList }}"  
+          with_items: "{{ delayList }}"  
 
         - name: "Check Wiremock java process"
           shell: "ps axf | grep 'java -jar wiremock' | grep -v grep | awk '{print $1}'"
@@ -45,6 +87,6 @@
         #  shell: "java -jar wiremock...{{ mocks }}"
         #  ignore_errors: false
   
-#ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "mocks='fd/semi'"
+#ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "baseDir='~'"
 
 
