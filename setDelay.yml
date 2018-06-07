@@ -9,7 +9,6 @@
           msg: "Variable {{ item }} must be provided"
         with_items: 
           - baseDir
-          - mockList
     tasks:
         - name: "Prepend to mocks a basedir path"
           set_fact:
