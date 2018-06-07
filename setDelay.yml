@@ -27,10 +27,9 @@
           with_items: "{{ folderList }}"
           register: fileList
 
-
-        #- name: "Debug step - fileList"
-        #  debug: 
-        #    msg: "{{ fileList }}"
+        - name: "Debug step - fileList"
+          debug: 
+            msg: "{{ fileList }}"
 
         - name: "Debug step - fileList"
           debug: 
@@ -47,7 +46,6 @@
           with_subelements:
             - "{{ fileList.results }}"
             - files  
-
 
         - name: "Debug step - delayList"
           debug: 
@@ -91,5 +89,11 @@
         #  ignore_errors: false
   
 #ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "baseDir='~'"
+
+# Todo
+#---------------------------------------------------
+# collect list of mocks for wiremock restart
+# conditioned debug statements driven by variable
+# markdown for execution
 
 
