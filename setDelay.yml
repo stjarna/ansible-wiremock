@@ -11,11 +11,24 @@
           - wiremock_port
           - wiremock_home
     tasks:
+
+        - name: "Verify that wiremock.sh file is present in wiremock_home"
+          find:
+            paths: "{{ wiremock_home }}"
+            patterns: "wiremock.sh"
+            recurse: false
+          register: wiremock_check_output  
+
+        - name: "Fail if no wiremock.sh in wiremock_home found"
+          fail:
+            msg: "No wiremock instance found in {{ wiremock_home }} on {{ inventory_hostname }}"  
+          when: not wiremock_check_output.matched          
+
         - name: "Extract unique list of mocks"  
           set_fact: 
             wiremock_mocks: "{{mockDelays | map(attribute='mockName') | join(',') }}"             
 
-        - name: "Prepend to mocks a wiremock mapping path"
+        - name: "Prepend to mocks a Wiremock mapping path"
           set_fact:
             folderList: "{{ folderList|default([]) + [ {'folderName': wiremock_home + '/mappings/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
           with_items: "{{ mockDelays}}"  
@@ -76,31 +89,16 @@
           ignore_errors: false
           when: wiremock_pid.stdout_lines | length > 0
 
-        - name: "Verify that wiremock.sh file is present"
-          find:
-            paths: "{{ wiremock_home }}"
-            patterns: "wiremock.sh"
-            recurse: false
-          register: wiremock_check_output  
-
-        - name: "Start Wiremock java process if wiremock exists"
+        - name: "Start Wiremock java process if Wiremock exists"
           shell: "./wiremock.sh -start -port {{ wiremock_port }} -mock {{ wiremock_mocks }}"
           args:
             chdir: "{{ wiremock_home }}"            
           ignore_errors: false
           register: wiremock_start_output
-          when: wiremock_check_output.matched
   
-        - name: "Debug step - print wiremock start output if wiremock exists"
+        - name: "Debug step - print Wiremock start output if wiremock exists"
           debug: 
             msg="Wiremock process started {{ wiremock_start_output }}"  
-          when: wiremock_check_output.matched
-
-  
-        - name: "Debug step - print if wiremock does not exist"
-          debug: 
-            msg="No wiremock instance found in {{ wiremock_home }} on {{ inventory_hostname }}"  
-          when: not wiremock_check_output.matched          
 
 # Todo
 #---------------------------------------------------
