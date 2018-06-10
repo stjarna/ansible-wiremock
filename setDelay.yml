@@ -74,7 +74,7 @@
           register: wiremock_pid
           ignore_errors: false
 
-        - name: "Debug step - print wiremock PID if it was running"
+        - name: "Debug step - print Wiremock PID if it was running"
           debug: 
             msg="Wiremock process was running on {{ inventory_hostname }} with PID {{wiremock_pid.stdout}}"
           when: wiremock_pid.stdout_lines | length > 0
