@@ -1,0 +1,20 @@
+---
+all:
+  children:
+    vagrant:
+      hosts:
+        vagrant1:
+          ansible_host: 127.0.0.1 
+          ansible_port: 2222
+        vagrant2: 
+          ansible_host: 127.0.0.1 
+          ansible_port: 2200
+        vagrant3: 
+          ansible_host: 127.0.0.1 
+          ansible_port: 2201
+      vars:
+          ansible_user: vagrant
+          wiremock_port: 8080
+          wiremock_home: /home/vagrant/wiremock    
+
+

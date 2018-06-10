@@ -6,17 +6,18 @@
     pre_tasks:
       - assert:  
           that: "{{ item }} is defined" 
-          msg: "Variable {{ item }} must be provided"
+          msg: "Playbook variable {{ item }} is required. Check inventory or command line variables"
         with_items: 
-          - wiremock_mapping_home
+          - wiremock_port
+          - wiremock_home
     tasks:
         - name: "Extract unique list of mocks"  
           set_fact: 
             wiremock_mocks: "{{mockDelays | map(attribute='mockName') | join(',') }}"             
 
-        - name: "Prepend to mocks a wiremock_mapping_home path"
+        - name: "Prepend to mocks a wiremock mapping path"
           set_fact:
-            folderList: "{{ folderList|default([]) + [ {'folderName': wiremock_mapping_home + '/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
+            folderList: "{{ folderList|default([]) + [ {'folderName': wiremock_home + '/mappings/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
           with_items: "{{ mockDelays}}"  
 
         - name: "Find affected mock files"
@@ -33,7 +34,7 @@
             - "{{ fileList.results }}"
             - files  
 
-        - name: "Debug - list of files to be impacted"
+        - name: "Debug step - list of files to be impacted"
           debug: 
             msg: "{{ delayList }}"
           when: delayList is defined
@@ -60,31 +61,49 @@
           register: wiremock_pid
           ignore_errors: false
 
-        - name: "Debug step - wiremock PID"
+        - name: "Debug step - print wiremock PID if it was running"
           debug: 
-            msg="Wiremock process was running on {{ inventory_hostname }} with PID {{wiremock_pid.stdout}} "
+            msg="Wiremock process was running on {{ inventory_hostname }} with PID {{wiremock_pid.stdout}}"
           when: wiremock_pid.stdout_lines | length > 0
+
+        - name: "Debug step - no wiremock instance was running"
+          debug: 
+            msg="No wiremock process was running on {{ inventory_hostname }}"
+          when: not (wiremock_pid.stdout_lines | length > 0)          
 
         - name: "Kill Wiremock java process"
           shell: "kill -9 {{ wiremock_pid.stdout }}"
           ignore_errors: false
           when: wiremock_pid.stdout_lines | length > 0
 
-        - name: "Start Wiremock java process"
+        - name: "Verify that wiremock.sh file is present"
+          find:
+            paths: "{{ wiremock_home }}"
+            patterns: "wiremock.sh"
+            recurse: false
+          register: wiremock_check_output  
+
+        - name: "Start Wiremock java process if wiremock exists"
           shell: "./wiremock.sh -start -port {{ wiremock_port }} -mock {{ wiremock_mocks }}"
           args:
             chdir: "{{ wiremock_home }}"            
           ignore_errors: false
           register: wiremock_start_output
+          when: wiremock_check_output.matched
   
-        - name: "Debug step - wiremock start output"
+        - name: "Debug step - print wiremock start output if wiremock exists"
           debug: 
-            msg="Wiremock process started {{ wiremock_start_output }} "  
-#ansible-playbook setDelay.yml -i inventory --limit vagrant1 --extra-vars "wiremock_mapping_home='~/wiremock/mappings' wiremock_port='8080' wiremock_home='~/wiremock'"
+            msg="Wiremock process started {{ wiremock_start_output }}"  
+          when: wiremock_check_output.matched
+
+  
+        - name: "Debug step - print if wiremock does not exist"
+          debug: 
+            msg="No wiremock instance found in {{ wiremock_home }} on {{ inventory_hostname }}"  
+          when: not wiremock_check_output.matched          
 
 # Todo
 #---------------------------------------------------
 # markdown for execution
-# define in inventory -> wiremock_port, wiremock_home
-
+#   ansible-playbook setDelay.yml --limit vagrant1 
 
