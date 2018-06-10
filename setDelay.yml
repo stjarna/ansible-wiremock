@@ -89,14 +89,14 @@
           ignore_errors: false
           when: wiremock_pid.stdout_lines | length > 0
 
-        - name: "Start Wiremock java process if Wiremock exists"
+        - name: "Start Wiremock"
           shell: "./wiremock.sh -start -port {{ wiremock_port }} -mock {{ wiremock_mocks }}"
           args:
             chdir: "{{ wiremock_home }}"            
           ignore_errors: false
           register: wiremock_start_output
   
-        - name: "Debug step - print Wiremock start output if wiremock exists"
+        - name: "Debug step - print Wiremock start output"
           debug: 
             msg="Wiremock process started {{ wiremock_start_output }}"  
 
