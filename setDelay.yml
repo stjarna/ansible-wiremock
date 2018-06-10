@@ -1,23 +1,23 @@
--   name: "Change fixedDelay" 
+-   name: "Change wiremock fixedDelay" 
     hosts: "all"
     gather_facts: False
     vars:    
-      mockList: "{{ lookup('file','files/mockDelays.yml') | from_yaml }}"
+      mockDelays: "{{ lookup('file','files/mockDelays.yml') | from_yaml }}"
     pre_tasks:
       - assert:  
           that: "{{ item }} is defined" 
           msg: "Variable {{ item }} must be provided"
         with_items: 
-          - baseDir
+          - wiremock_mapping_home
     tasks:
-        - name: "Prepend to mocks a basedir path"
-          set_fact:
-            folderList: "{{ folderList|default([]) + [ {'folderName': baseDir + '/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
-          with_items: "{{ mockList}}"  
+        - name: "Extract unique list of mocks"  
+          set_fact: 
+            wiremock_mocks: "{{mockDelays | map(attribute='mockName') | join(',') }}"             
 
-        - name: "Debug step - folderList"
-          debug: 
-            msg="folderList {{ folderList}}"
+        - name: "Prepend to mocks a wiremock_mapping_home path"
+          set_fact:
+            folderList: "{{ folderList|default([]) + [ {'folderName': wiremock_mapping_home + '/' + item.mockName, 'delay': item.delay, 'fileMask': item.fileMask} ] }}"         
+          with_items: "{{ mockDelays}}"  
 
         - name: "Find affected mock files"
           find:
@@ -26,19 +26,6 @@
           with_items: "{{ folderList }}"
           register: fileList
 
-        - name: "Debug step - fileList"
-          debug: 
-            msg: "{{ fileList }}"
-
-        - name: "Debug step - fileList"
-          debug: 
-            msg: "file: {{ item.1.path }}, delay: {{ folderList | selectattr('folderName', 'equalto', item.0.item.folderName) | map(attribute='delay') | join(',') }}"
-          # nested lists require the following loop  
-          with_subelements:
-            - "{{ fileList.results }}"
-            - files  
-
-
         - name: "Prepare file list with delays"
           set_fact: 
             delayList: "{{ delayList|default([]) + [ {'fileName':  item.1.path, 'delay': folderList | selectattr('folderName', 'equalto', item.0.item.folderName) | map(attribute='delay') | join(',') } ] }}"                    
@@ -46,7 +33,7 @@
             - "{{ fileList.results }}"
             - files  
 
-        - name: "Debug step - delayList"
+        - name: "Debug - list of files to be impacted"
           debug: 
             msg: "{{ delayList }}"
           when: delayList is defined
@@ -59,11 +46,11 @@
           with_items: "{{ delayList }}"
           when: delayList is defined
     
-        - name: "Add fixed delay"
+        - name: "Add fixed delay as per a new definition"
           lineinfile:
             path: "{{ item.fileName }}"
             insertafter: '^.*"status"'
-            line: ',"fixedDelayMilliseconds": {{item.delay}}'
+            line: '"fixedDelayMilliseconds": {{item.delay}},'
             state: present
           with_items: "{{ delayList }}"  
           when: delayList is defined
@@ -73,9 +60,9 @@
           register: wiremock_pid
           ignore_errors: false
 
-        - name: "Debug step"
+        - name: "Debug step - wiremock PID"
           debug: 
-            msg="Wiremock Process is running on {{ inventory_hostname }} ... {{wiremock_pid.stdout}} "
+            msg="Wiremock process was running on {{ inventory_hostname }} with PID {{wiremock_pid.stdout}} "
           when: wiremock_pid.stdout_lines | length > 0
 
         - name: "Kill Wiremock java process"
@@ -83,16 +70,21 @@
           ignore_errors: false
           when: wiremock_pid.stdout_lines | length > 0
 
-        #- name: "Start Wiremock java process"
-        #  shell: "java -jar wiremock...{{ mocks }}"
-        #  ignore_errors: false
+        - name: "Start Wiremock java process"
+          shell: "./wiremock.sh -start -port {{ wiremock_port }} -mock {{ wiremock_mocks }}"
+          args:
+            chdir: "{{ wiremock_home }}"            
+          ignore_errors: false
+          register: wiremock_start_output
   
-#ansible-playbook setDelay.yml -i inventory --limit vagrant1 -extra-vars "baseDir='~'"
+        - name: "Debug step - wiremock start output"
+          debug: 
+            msg="Wiremock process started {{ wiremock_start_output }} "  
+#ansible-playbook setDelay.yml -i inventory --limit vagrant1 --extra-vars "wiremock_mapping_home='~/wiremock/mappings' wiremock_port='8080' wiremock_home='~/wiremock'"
 
 # Todo
 #---------------------------------------------------
-# collect list of mocks for wiremock restart
-# conditioned debug statements driven by variable
 # markdown for execution
+# define in inventory -> wiremock_port, wiremock_home
 
 
